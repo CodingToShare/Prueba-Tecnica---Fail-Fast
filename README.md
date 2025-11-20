@@ -51,6 +51,7 @@ Esta es la **Meta 8** completada. Todas las metas han sido implementadas:
 
 ## 📚 Documentación
 
+- **[RESUMEN.md](./RESUMEN.md)** - 📋 Resumen completo de todas las metas y características implementadas
 - **[API.md](./API.md)** - Documentación completa de endpoints REST, ejemplos, validaciones
 - **[DOCKER.md](./DOCKER.md)** - Docker y Docker Compose setup, configuración
 - **[DEVELOPER.md](./DEVELOPER.md)** - Guía de desarrollo local, debugging, buenas prácticas
