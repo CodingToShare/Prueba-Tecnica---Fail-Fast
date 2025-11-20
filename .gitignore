@@ -70,9 +70,6 @@ nuget.config
 # Datos Sensibles y Configuración
 # ============================================================================
 appsettings.*.json
-!appsettings.Development.json
-!appsettings.Production.json
-!appsettings.Staging.json
 .env
 .env.local
 .env.*.local
