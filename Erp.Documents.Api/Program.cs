@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Erp.Documents.Infrastructure.Data;
 using Erp.Documents.Infrastructure.Configuration;
 using Erp.Documents.Infrastructure.Storage;
+using Erp.Documents.Infrastructure.Services;
 using Erp.Documents.Application.Interfaces;
 using Amazon.S3;
 
@@ -61,6 +62,12 @@ builder.Services.AddScoped<IObjectStorageService>(provider =>
 
 // ===== Servicios de aplicación (placeholder - se rellenarán con las metas) =====
 // Se agregarán aquí los servicios de aplicación, etc.
+
+// ===== Servicios de aplicación (Meta 4 - Gestión de documentos) =====
+builder.Services.AddScoped<IUploadDocumentService, UploadDocumentService>();
+builder.Services.AddScoped<IDownloadDocumentService, DownloadDocumentService>();
+builder.Services.AddScoped<IApproveDocumentService, ApproveDocumentService>();
+builder.Services.AddScoped<IRejectDocumentService, RejectDocumentService>();
 
 // ===== Swagger/OpenAPI =====
 builder.Services.AddSwaggerGen();
