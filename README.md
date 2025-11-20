@@ -39,13 +39,13 @@ Storage:Azure:ContainerName=documents
 
 ## 🚀 Instrucciones de Ejecución (Próximamente)
 
-Esta es la **Meta 5** completada. Las metas completadas incluyen:
+Esta es la **Meta 6** completada. Las metas completadas incluyen:
 - ✅ **Meta 1**: Estructura de proyectos y DI
 - ✅ **Meta 2**: Modelo de datos (Migraciones EF Core)
 - ✅ **Meta 3**: Servicios de almacenamiento (Azure Blob, S3)
 - ✅ **Meta 4**: Casos de uso y lógica de validación
 - ✅ **Meta 5**: Endpoints REST
-- ⏳ **Meta 6**: Validación, auditoría, manejo de errores
+- ✅ **Meta 6**: Validación, auditoría, manejo de errores
 - ⏳ **Meta 7**: Tests unitarios e integration tests
 - ⏳ **Meta 8**: Docker y documentación final
 
@@ -222,6 +222,97 @@ builder.Services.AddScoped<IRejectDocumentService, RejectDocumentService>();
 }
 ```
 
+## 🛡️ Meta 6: Validación, Auditoría y Manejo de Errores
+
+### Validadores (FluentValidation)
+
+#### UploadDocumentRequestValidator
+- CompanyId: No vacío
+- EntityType: No vacío, máx 100 caracteres
+- EntityId: No vacío, máx 100 caracteres
+- FileName: No vacío, máx 255 caracteres, solo caracteres válidos
+- MimeType: Formato válido (ej: application/pdf)
+- FileSizeBytes: Mayor a 0
+- UploadedByUserId: Opcional, máx 100 caracteres
+
+#### ApproveDocumentRequestValidator
+- DocumentId: No vacío
+- ApproverUserId: No vacío, máx 100 caracteres
+- Reason: Opcional, máx 500 caracteres
+
+#### RejectDocumentRequestValidator
+- DocumentId: No vacío
+- RejecterUserId: No vacío, máx 100 caracteres
+- Reason: No vacío, máx 500 caracteres
+
+### Servicios de Auditoría
+
+**IAuditService:**
+- `LogOperationAsync`: Registra operaciones en auditoría
+- `GetDocumentAuditHistoryAsync`: Obtiene historial de un documento
+
+**AuditLog (Modelo):**
+```csharp
+public class AuditLog
+{
+    public Guid Id { get; set; }
+    public Guid DocumentId { get; set; }
+    public string OperationType { get; set; } // Upload, Approve, Reject, Download
+    public string UserId { get; set; }
+    public string Description { get; set; }
+    public bool Success { get; set; }
+    public string? ErrorMessage { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public string IpAddress { get; set; }
+    public string UserAgent { get; set; }
+}
+```
+
+### Manejo Global de Excepciones
+
+**GlobalExceptionHandlerMiddleware** captura y maneja:
+
+| Excepción | HTTP Status | Respuesta |
+|-----------|-------------|----------|
+| ValidationException | 400 | Errores estructurados por campo |
+| ArgumentException | 400 | "Argumento inválido" |
+| FileNotFoundException | 404 | "Recurso no encontrado" |
+| InvalidOperationException | 400 | "Operación inválida" |
+| UnauthorizedAccessException | 401 | "Acceso no autorizado" |
+| Otras excepciones | 500 | "Error interno del servidor" |
+
+**Respuesta de Error:**
+```json
+{
+  "message": "Descripción del error",
+  "details": "Detalles adicionales (si aplica)",
+  "timestamp": "2025-11-20T10:30:00Z",
+  "traceId": "0HN1GQVMFGE9H:00000001",
+  "errors": {
+    "FieldName": ["Error message 1", "Error message 2"]
+  }
+}
+```
+
+### Filtro de Validación
+
+**ValidateModelFilterAttribute** - Valida automáticamente el ModelState antes de ejecutar acciones del controller.
+
+### Integración en Program.cs
+
+```csharp
+// Validadores
+builder.Services.AddScoped<IValidator<UploadDocumentRequest>, UploadDocumentRequestValidator>();
+builder.Services.AddScoped<IValidator<ApproveDocumentRequest>, ApproveDocumentRequestValidator>();
+builder.Services.AddScoped<IValidator<RejectDocumentRequest>, RejectDocumentRequestValidator>();
+
+// Auditoría
+builder.Services.AddScoped<IAuditService, AuditService>();
+
+// Middleware de excepciones global
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+```
+
 ## 🔧 Estado Actual
 
 ✅ Estructura de proyectos creada  
@@ -236,5 +327,6 @@ builder.Services.AddScoped<IRejectDocumentService, RejectDocumentService>();
 ✅ **Meta 3: Servicios de almacenamiento multi-cloud (Azure Blob, S3)**  
 ✅ **Meta 4: Servicios de aplicación (Upload, Download, Approve, Reject)**  
 ✅ **Meta 5: REST Controllers (Upload, Download, Validation)**  
+✅ **Meta 6: Validación (FluentValidation), Auditoría, Manejo de errores global**  
 
-⏳ Próximo: Validación, auditoría, manejo de errores (Meta 6)
+⏳ Próximo: Tests unitarios e integration (Meta 7)
