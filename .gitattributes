@@ -1,0 +1,95 @@
+# ============================================================================
+# .gitattributes - Erp.Documents Project
+# Normaliza finales de línea y encoding entre plataformas
+# ============================================================================
+
+# Auto detectar CRLF/LF
+* text=auto
+
+# ============================================================================
+# Archivos de Código (.NET/C#)
+# ============================================================================
+*.cs text eol=crlf
+*.xaml text eol=crlf
+*.xaml.cs text eol=crlf
+*.csproj text eol=crlf
+*.sln text eol=crlf
+*.props text eol=crlf
+*.targets text eol=crlf
+
+# ============================================================================
+# Configuración
+# ============================================================================
+*.json text eol=crlf
+*.xml text eol=crlf
+*.config text eol=crlf
+*.yml text eol=crlf
+*.yaml text eol=crlf
+appsettings*.json text eol=crlf
+
+# ============================================================================
+# Documentación
+# ============================================================================
+*.md text eol=crlf
+*.markdown text eol=crlf
+*.txt text eol=crlf
+*.sql text eol=crlf
+README* text eol=crlf
+LICENSE text eol=crlf
+*.rst text eol=crlf
+
+# ============================================================================
+# Scripts
+# ============================================================================
+*.ps1 text eol=crlf
+*.ps2 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.sh text eol=lf
+Makefile text eol=lf
+*.gradle text eol=lf
+
+# ============================================================================
+# Archivos Binarios
+# ============================================================================
+*.dll binary
+*.exe binary
+*.so binary
+*.dylib binary
+*.jar binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.rar binary
+*.7z binary
+
+# ============================================================================
+# Imágenes
+# ============================================================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mov binary
+*.mp4 binary
+*.mp3 binary
+*.flv binary
+*.fla binary
+
+# ============================================================================
+# Documentos
+# ============================================================================
+*.pdf binary
+*.doc binary
+*.docx binary
+*.xls binary
+*.xlsx binary
+*.ppt binary
+*.pptx binary
+
+# ============================================================================
+# Archivos Específicos del Proyecto
+# ============================================================================
+*.sln merge=union
+Migrations/ merge=union
