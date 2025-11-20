@@ -39,14 +39,14 @@ Storage:Azure:ContainerName=documents
 
 ## 🚀 Instrucciones de Ejecución (Próximamente)
 
-Esta es la **Meta 6** completada. Las metas completadas incluyen:
+Esta es la **Meta 7** completada. Las metas completadas incluyen:
 - ✅ **Meta 1**: Estructura de proyectos y DI
 - ✅ **Meta 2**: Modelo de datos (Migraciones EF Core)
 - ✅ **Meta 3**: Servicios de almacenamiento (Azure Blob, S3)
 - ✅ **Meta 4**: Casos de uso y lógica de validación
 - ✅ **Meta 5**: Endpoints REST
 - ✅ **Meta 6**: Validación, auditoría, manejo de errores
-- ⏳ **Meta 7**: Tests unitarios e integration tests
+- ✅ **Meta 7**: Tests unitarios e integration tests
 - ⏳ **Meta 8**: Docker y documentación final
 
 ## 📝 Paquetes NuGet Instalados
@@ -313,6 +313,31 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 ```
 
+## 🧪 Meta 7: Tests Unitarios e Integration Tests
+
+### Framework de Testing
+- **xUnit** - Test runner
+- **Moq 4.20.72** - Mocking library
+- **FluentAssertions 8.8.0** - Fluent assertion library
+
+### Proyecto: Erp.Documents.Tests
+
+**Estructura:**
+```
+Erp.Documents.Tests/
+├── Unit/
+│   └── ValidatorSimpleTests.cs    # Tests para validadores (10 tests)
+└── Integration/
+    └── DocumentEntityTests.cs      # Tests para entidades (4 tests)
+```
+
+**Ejecución:**
+```bash
+cd Erp.Documents.Tests
+dotnet test
+# Result: 13 passed, 0 failed
+```
+
 ## 🔧 Estado Actual
 
 ✅ Estructura de proyectos creada  
@@ -328,5 +353,6 @@ app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 ✅ **Meta 4: Servicios de aplicación (Upload, Download, Approve, Reject)**  
 ✅ **Meta 5: REST Controllers (Upload, Download, Validation)**  
 ✅ **Meta 6: Validación (FluentValidation), Auditoría, Manejo de errores global**  
+✅ **Meta 7: Tests unitarios e integration tests (xUnit, Moq, FluentAssertions)**  
 
-⏳ Próximo: Tests unitarios e integration (Meta 7)
+⏳ Próximo: Docker y documentación final (Meta 8)
