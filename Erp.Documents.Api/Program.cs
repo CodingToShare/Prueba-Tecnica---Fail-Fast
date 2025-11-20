@@ -1,9 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using FluentValidation;
 using Erp.Documents.Infrastructure.Data;
 using Erp.Documents.Infrastructure.Configuration;
 using Erp.Documents.Infrastructure.Storage;
 using Erp.Documents.Infrastructure.Services;
+using Erp.Documents.Infrastructure.Audit;
 using Erp.Documents.Application.Interfaces;
+using Erp.Documents.Application.DTOs;
+using Erp.Documents.Application.Validators;
+using Erp.Documents.Api.Middleware;
 using Amazon.S3;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -69,6 +74,14 @@ builder.Services.AddScoped<IDownloadDocumentService, DownloadDocumentService>();
 builder.Services.AddScoped<IApproveDocumentService, ApproveDocumentService>();
 builder.Services.AddScoped<IRejectDocumentService, RejectDocumentService>();
 
+// ===== Validadores (Meta 6 - Validación) =====
+builder.Services.AddScoped<IValidator<UploadDocumentRequest>, UploadDocumentRequestValidator>();
+builder.Services.AddScoped<IValidator<ApproveDocumentRequest>, ApproveDocumentRequestValidator>();
+builder.Services.AddScoped<IValidator<RejectDocumentRequest>, RejectDocumentRequestValidator>();
+
+// ===== Servicios de Auditoría (Meta 6 - Auditoría) =====
+builder.Services.AddScoped<IAuditService, AuditService>();
+
 // ===== Swagger/OpenAPI =====
 builder.Services.AddSwaggerGen();
 
@@ -80,6 +93,8 @@ var app = builder.Build();
 await DbInitializer.InitializeDatabaseAsync(app.Services);
 
 // ===== Middleware =====
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
