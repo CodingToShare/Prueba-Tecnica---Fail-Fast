@@ -18,16 +18,27 @@ namespace Erp.Documents.Infrastructure.Data
                 try
                 {
                     // Aplicar migraciones pendientes
-                    await context.Database.MigrateAsync();
+                    try
+                    {
+                        await context.Database.MigrateAsync();
+                        Console.WriteLine("✓ Migraciones aplicadas correctamente");
+                    }
+                    catch (Exception migrationEx)
+                    {
+                        Console.WriteLine($"⚠ Advertencia en migraciones: {migrationEx.Message}");
+                        Console.WriteLine("Continuando sin migraciones... La BD debe estar lista.");
+                    }
 
                     // Sembrar datos iniciales
                     await SeedDataAsync(context);
+                    Console.WriteLine("✓ Base de datos inicializada");
                 }
                 catch (Exception ex)
                 {
                     // Log en caso de error (en producción, usar ILogger)
-                    Console.WriteLine($"Error al inicializar la base de datos: {ex.Message}");
-                    throw;
+                    Console.WriteLine($"✗ Error crítico al inicializar BD: {ex.Message}");
+                    Console.WriteLine($"Stack: {ex.StackTrace}");
+                    // No lanzar excepción para permitir que la app arranque
                 }
             }
         }

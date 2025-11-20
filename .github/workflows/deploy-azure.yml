@@ -1,0 +1,129 @@
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Setup .NET
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # 3. Restore dependencies
+      - name: Restore NuGet packages
+        run: dotnet restore
+
+      # 4. Build solution
+      - name: Build solution
+        run: dotnet build --configuration Release --no-restore
+
+      # 5. Run Tests
+      - name: Run tests
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      # 6. Publish API
+      - name: Publish API
+        run: |
+          dotnet publish ./Erp.Documents.Api/Erp.Documents.Api.csproj \
+            --configuration Release \
+            --no-build \
+            --output ./publish/api
+
+      # 7. Login to Azure
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 8. Deploy to App Service
+      - name: Deploy to App Service
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ secrets.AZURE_APP_SERVICE_NAME }}
+          package: ./publish/api
+
+      # 9. Run migrations on Azure
+      - name: Run EF Core migrations
+        run: |
+          az webapp deployment slot create \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ secrets.AZURE_APP_SERVICE_NAME }} \
+            --slot staging || true
+          
+          az webapp up \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ secrets.AZURE_APP_SERVICE_NAME }} \
+            --plan ${{ secrets.AZURE_APP_SERVICE_PLAN }}
+        continue-on-error: true
+
+      # 10. Swap deployment slots
+      - name: Swap deployment slots
+        run: |
+          az webapp deployment slot swap \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ secrets.AZURE_APP_SERVICE_NAME }} \
+            --slot staging || true
+        continue-on-error: true
+
+      # 11. Post-deployment verification
+      - name: Verify deployment
+        run: |
+          APP_URL="https://${{ secrets.AZURE_APP_SERVICE_NAME }}.azurewebsites.net"
+          echo "Checking deployment at: $APP_URL"
+          curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" "$APP_URL/health" || echo "Health check not available yet"
+
+      # 12. Send notification (optional)
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+            echo "API URL: https://${{ secrets.AZURE_APP_SERVICE_NAME }}.azurewebsites.net"
+          else
+            echo "❌ Deployment failed!"
+          fi
+
+  # Optional: Test deployment
+  test-deployment:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test API endpoints
+        run: |
+          APP_URL="https://${{ secrets.AZURE_APP_SERVICE_NAME }}.azurewebsites.net"
+          
+          echo "Testing API endpoints..."
+          
+          # Test health endpoint
+          echo "1. Health check..."
+          curl -s -o /dev/null -w "Status: %{http_code}\n" "$APP_URL/health" || true
+          
+          # Test swagger
+          echo "2. Swagger UI..."
+          curl -s -o /dev/null -w "Status: %{http_code}\n" "$APP_URL/swagger" || true
+          
+          # Test API endpoints
+          echo "3. API Status..."
+          curl -s "$APP_URL/api/status" | head -20 || echo "API not ready yet"

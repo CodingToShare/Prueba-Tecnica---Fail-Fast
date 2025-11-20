@@ -95,15 +95,13 @@ await DbInitializer.InitializeDatabaseAsync(app.Services);
 // ===== Middleware =====
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
-if (app.Environment.IsDevelopment())
+// Swagger siempre habilitado (para desarrollo y testing)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Erp.Documents API v1");
-        c.RoutePrefix = string.Empty; // Swagger en raíz
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Erp.Documents API v1");
+    c.RoutePrefix = string.Empty; // Swagger en raíz
+});
 
 app.UseHttpsRedirection();
 app.UseAuthorization();

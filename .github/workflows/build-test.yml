@@ -1,0 +1,117 @@
+name: Build & Test
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+  pull_request:
+    branches:
+      - master
+      - main
+      - develop
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          MSSQL_SA_PASSWORD: TestPassword123!
+          ACCEPT_EULA: Y
+        options: >-
+          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P TestPassword123! -Q 'SELECT 1'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 1433:1433
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Setup .NET 10
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # 3. Restore NuGet packages
+      - name: Restore NuGet packages
+        run: dotnet restore
+
+      # 4. Build solution
+      - name: Build solution
+        run: dotnet build --configuration Release --no-restore
+
+      # 5. Wait for SQL Server to be ready
+      - name: Wait for SQL Server
+        run: |
+          echo "Waiting for SQL Server to be ready..."
+          for i in {1..30}; do
+            if /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P TestPassword123! -Q "SELECT 1" &> /dev/null; then
+              echo "SQL Server is ready!"
+              break
+            fi
+            echo "Attempt $i/30..."
+            sleep 2
+          done
+
+      # 6. Create test database
+      - name: Create test database
+        run: |
+          /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P TestPassword123! \
+            -Q "CREATE DATABASE ErpDocuments_Test"
+
+      # 7. Run unit and integration tests
+      - name: Run tests
+        run: dotnet test --configuration Release --no-build --verbosity normal /p:CollectCoverage=true /p:CoverageFormat=opencover
+        env:
+          ConnectionStrings__DefaultConnection: "Server=localhost;Database=ErpDocuments_Test;User Id=sa;Password=TestPassword123!;TrustServerCertificate=true;"
+
+      # 8. Upload coverage to Codecov
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/coverage.opencover.xml
+          flags: unittests
+          name: codecov-umbrella
+        continue-on-error: true
+
+      # 9. Generate test results
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            **/test-results.xml
+            **/TestResults.xml
+        continue-on-error: true
+
+      # 10. Build Docker image (optional)
+      - name: Build Docker image
+        run: |
+          docker build -f Dockerfile -t erp-documents-api:latest .
+        continue-on-error: true
+
+      # 11. Run Docker image (optional)
+      - name: Test Docker image
+        run: |
+          docker run --name erp-api-test \
+            -e ASPNETCORE_ENVIRONMENT=Development \
+            -e ConnectionStrings__DefaultConnection="Server=localhost;Database=ErpDocuments_Test;User Id=sa;Password=TestPassword123!;TrustServerCertificate=true;" \
+            -p 5001:80 \
+            -d erp-documents-api:latest || true
+          
+          sleep 5
+          
+          # Test health endpoint
+          curl -s http://localhost:5001/health || echo "Health endpoint not available"
+          
+          docker rm -f erp-api-test || true
+        continue-on-error: true

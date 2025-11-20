@@ -241,3 +241,4 @@ Installer_Files/
 # Descomentar las líneas siguientes si necesitas excluir configuraciones locales
 # local.settings.json
 # .localhistory/
+TEST_CASES.md

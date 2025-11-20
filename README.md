@@ -1,434 +1,374 @@
-# Erp.Documents - Gestión de Documentos para ERP
+# Gestión de Documentos en ERP
 
-## 📋 Descripción
+Módulo backend en **.NET 10** para almacenamiento de documentos de negocio con cloud storage (Azure Blob Storage o AWS S3) y validación jerárquica de aprobaciones.
 
-Solución de microservicio backend para gestión de documentos en un ERP con soporte para:
-- **Almacenamiento multi-cloud**: Azure Blob Storage y AWS S3
-- **Validación jerárquica de documentos**: Flujo de aprobación con múltiples niveles
-- **API REST JSON**: Endpoints para carga, descarga, aprobación y rechazo de documentos
-- **Arquitectura limpia**: Separación clara de responsabilidades (Domain, Application, Infrastructure, Api)
+## 📦 Contexto
 
-## 🏗️ Estructura del Proyecto
+Este módulo permite almacenar documentos de negocio (fotos de vehículos, documentos de empleados, certificados, etc.) en cloud storage, mantener sus metadatos en base de datos SQL Server y gestionar un flujo jerárquico de validación con aprobaciones.
+
+## 🎯 Alcance Implementado
+
+✅ **Modelado de datos** con ORM (Entity Framework Core):
+- Empresas y entidades de dominio (genéricas: EntityType, EntityId)
+- Documentos con metadatos (nombre, tipo MIME, tamaño, ubicación en bucket)
+- Flujo de validación jerárquico con pasos y acciones
+
+✅ **Endpoint de carga** (`POST /api/upload/initiate` y `/complete`):
+- Genera URL presignada para subir al bucket
+- Crea referencia en BD sin almacenar binario
+
+✅ **Endpoint de descarga** (`GET /api/download/{documentId}`):
+- Retorna URL presignada para descargar
+- Incluye metadatos y estado de validación
+
+✅ **Acciones de validación**:
+- `POST /api/validation/approve` - Aprueba documento
+- `POST /api/validation/reject` - Rechaza documento (terminal)
+- Reglas de jerarquía: mayor order aprueba pasos previos
+
+✅ **Auditoría y trazabilidad**: Registra todas las acciones
+
+## 📋 Modelo de Datos
 
 ```
-Erp.Documents/
-├── Erp.Documents.Api/           # Web API (Controllers, Middleware, Filters)
-├── Erp.Documents.Application/   # Casos de uso (Services, DTOs, Validators)
-├── Erp.Documents.Domain/        # Entidades de dominio (Entities, Enums, Interfaces)
-├── Erp.Documents.Infrastructure/ # Data Access, Storage, Configuration
-└── Erp.Documents.sln
+Company
+  └─ Document (companyId, entityType, entityId, name, mimeType, sizeBytes, bucketKey)
+      ├─ ValidationStatus: NULL | "P" | "A" | "R"
+      └─ DocumentValidationFlow
+          ├─ ValidationStep (order, approverUserId, status)
+          └─ ValidationAction (actionType, actorUserId, reason)
 ```
 
-## ⚙️ Configuración
+**Estados de validación:**
+- `NULL` - Sin validación requerida
+- `P` - Pendiente
+- `A` - Aprobado
+- `R` - Rechazado (terminal)
 
-### Environment: Development
+## 🔧 Configuración
 
-**appsettings.Development.json** incluye:
-- Connection string a SQL Server Azure
-- Azure Blob Storage credentials (proveedor por defecto)
-- AWS S3 config (disponible para cambiar)
-- Opciones de validación, seguridad, auditoría
+### Variables de Entorno
 
-### Variables de Entorno (Opcional)
-
-```bash
-Storage:Provider=AzureBlob
-Storage:Azure:ConnectionString=...
-Storage:Azure:ContainerName=documents
-```
-
-## 🚀 Instrucciones de Ejecución
-
-Esta es la **Meta 8** completada. Todas las metas han sido implementadas:
-- ✅ **Meta 1**: Estructura de proyectos y DI
-- ✅ **Meta 2**: Modelo de datos (Migraciones EF Core)
-- ✅ **Meta 3**: Servicios de almacenamiento (Azure Blob, S3)
-- ✅ **Meta 4**: Casos de uso y lógica de validación
-- ✅ **Meta 5**: Endpoints REST
-- ✅ **Meta 6**: Validación, auditoría, manejo de errores
-- ✅ **Meta 7**: Tests unitarios e integration tests
-- ✅ **Meta 8**: Docker y documentación final
-
-## 📚 Documentación
-
-- **[RESUMEN.md](./RESUMEN.md)** - 📋 Resumen completo de todas las metas y características implementadas
-- **[API.md](./API.md)** - Documentación completa de endpoints REST, ejemplos, validaciones
-- **[DOCKER.md](./DOCKER.md)** - Docker y Docker Compose setup, configuración
-- **[DEVELOPER.md](./DEVELOPER.md)** - Guía de desarrollo local, debugging, buenas prácticas
-
-### Quick Start
-
-#### Option 1: Local Development
-
-```bash
-# 1. Restore packages
-dotnet restore
-
-# 2. Setup database (SQL Server required)
-cd Erp.Documents.Infrastructure
-dotnet ef database update
-
-# 3. Run API
-cd ../Erp.Documents.Api
-dotnet run --launch-profile https
-```
-
-Visit: https://localhost:5001/swagger/index.html
-
-#### Option 2: Docker Compose
-
-```bash
-# Build and run all services
-docker-compose up -d
-
-# Check services
-docker ps
-
-# View logs
-docker logs erp-documents-api
-```
-
-Visit: http://localhost:8080/swagger/index.html
-
-#### Option 3: Run Tests
-
-```bash
-cd Erp.Documents.Tests
-dotnet test
-
-# Result: 13 tests passed ✅
-```
-
-## 📝 Paquetes NuGet Instalados
-
-- `Swashbuckle.AspNetCore` - Swagger/OpenAPI
-- `Microsoft.EntityFrameworkCore.SqlServer` - Data Access
-- `Microsoft.EntityFrameworkCore.Tools` - Migrations
-- `Azure.Storage.Blobs` - Azure Blob Storage
-- `AWSSDK.S3` - AWS S3
-- `FluentValidation` - Validación de DTOs
-- `Microsoft.Extensions.Logging.Abstractions` - Logging
-- `Microsoft.Extensions.Options` - Options pattern
-
-## 📦 Meta 4: Servicios de Aplicación
-
-### Servicios Implementados
-
-1. **UploadDocumentService**
-   - `InitiateUploadAsync`: Crea documento, flujo de validación (si aplica), genera URL presignada
-   - `CompleteUploadAsync`: Verifica archivo en storage, genera URL de descarga
-   - Validación de tamaño máximo, MIME types, campos requeridos
-
-2. **DownloadDocumentService**
-   - `GetDownloadUrlAsync`: Genera URL presignada con metadatos (nombre, tipo, tamaño, fecha expiracion)
-   - Verifica existencia del archivo en storage
-
-3. **ApproveDocumentService**
-   - `ApproveAsync`: Aprueba paso actual, avanza al siguiente (o marca completamente aprobado)
-   - `GetValidationStatusAsync`: Retorna estado completo del flujo de validación
-   - Lógica jerárquica multi-paso con auditoría completa
-
-4. **RejectDocumentService**
-   - `RejectAsync`: Marca documento como rechazado (estado terminal R)
-   - Marca todos los pasos pendientes como rechazados
-   - Registra acción de rechazo con motivo y auditoría
-
-### DTOs Creados
-
-**Request/Response:**
-- `UploadDocumentRequest` → `UploadDocumentResponse`
-- `DownloadDocumentResponse`
-- `ApproveDocumentRequest`
-- `RejectDocumentRequest`
-- `DocumentOperationResponse`
-
-**Status:**
-- `ValidationFlowStatusDto`: Estado completo del flujo
-- `ValidationStepStatusDto`: Estado individual de cada paso
-
-### Integración DI (Program.cs)
-
-```csharp
-builder.Services.AddScoped<IUploadDocumentService, UploadDocumentService>();
-builder.Services.AddScoped<IDownloadDocumentService, DownloadDocumentService>();
-builder.Services.AddScoped<IApproveDocumentService, ApproveDocumentService>();
-builder.Services.AddScoped<IRejectDocumentService, RejectDocumentService>();
-```
-
-## 📡 Meta 5: REST Controllers
-
-### Endpoints Implementados
-
-#### 1. Upload Controller (`/api/upload`)
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| POST | `/initiate` | Inicia carga, genera URL presignada |
-| POST | `/{documentId}/complete` | Completa carga, verifica en storage |
-
-**Request (Initiate):**
-```json
-{
-  "companyId": "guid",
-  "entityType": "Invoice",
-  "entityId": "INV-001",
-  "fileName": "invoice.pdf",
-  "mimeType": "application/pdf",
-  "fileSizeBytes": 102400,
-  "requiresValidation": true,
-  "uploadedByUserId": "user-123"
-}
-```
-
-**Response:**
-```json
-{
-  "documentId": "guid",
-  "presignedUploadUrl": "https://...",
-  "bucketKey": "documents/company-.../...",
-  "expiresInMinutes": 15,
-  "status": "Pending"
-}
-```
-
-#### 2. Download Controller (`/api/download`)
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| GET | `/{documentId}` | Genera URL presignada de descarga |
-
-**Response:**
-```json
-{
-  "documentId": "guid",
-  "presignedDownloadUrl": "https://...",
-  "fileName": "invoice.pdf",
-  "mimeType": "application/pdf",
-  "fileSizeBytes": 102400,
-  "expiresInMinutes": 15,
-  "status": "Available"
-}
-```
-
-#### 3. Validation Controller (`/api/validation`)
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| POST | `/approve` | Aprueba documento (avanza paso o completa) |
-| POST | `/reject` | Rechaza documento (estado terminal) |
-| GET | `/{documentId}/status` | Obtiene estado del flujo de validación |
-
-**Request (Approve):**
-```json
-{
-  "documentId": "guid",
-  "approverUserId": "user-456",
-  "reason": "Documento revisado correctamente"
-}
-```
-
-**Request (Reject):**
-```json
-{
-  "documentId": "guid",
-  "rejecterUserId": "user-456",
-  "reason": "Falta información crítica"
-}
-```
-
-**Response (Status):**
-```json
-{
-  "documentId": "guid",
-  "currentStatus": "P",
-  "totalSteps": 3,
-  "completedSteps": 1,
-  "steps": [
-    {
-      "order": 1,
-      "status": "Approved",
-      "approverUserId": "guid",
-      "approvedAtUtc": "2025-11-20T10:30:00Z",
-      "reason": "Revisado"
-    }
-  ]
-}
-```
-
-### HTTP Status Codes
-
-| Código | Significado |
-|--------|------------|
-| 200 | Operación exitosa |
-| 400 | Solicitud inválida (validación, estado, etc.) |
-| 404 | Recurso no encontrado |
-| 500 | Error interno del servidor |
-
-### Error Response
+Crear archivo `.env` o configurar en `appsettings.Development.json`:
 
 ```json
 {
-  "error": "Descripción del error"
-}
-```
-
-## 🛡️ Meta 6: Validación, Auditoría y Manejo de Errores
-
-### Validadores (FluentValidation)
-
-#### UploadDocumentRequestValidator
-- CompanyId: No vacío
-- EntityType: No vacío, máx 100 caracteres
-- EntityId: No vacío, máx 100 caracteres
-- FileName: No vacío, máx 255 caracteres, solo caracteres válidos
-- MimeType: Formato válido (ej: application/pdf)
-- FileSizeBytes: Mayor a 0
-- UploadedByUserId: Opcional, máx 100 caracteres
-
-#### ApproveDocumentRequestValidator
-- DocumentId: No vacío
-- ApproverUserId: No vacío, máx 100 caracteres
-- Reason: Opcional, máx 500 caracteres
-
-#### RejectDocumentRequestValidator
-- DocumentId: No vacío
-- RejecterUserId: No vacío, máx 100 caracteres
-- Reason: No vacío, máx 500 caracteres
-
-### Servicios de Auditoría
-
-**IAuditService:**
-- `LogOperationAsync`: Registra operaciones en auditoría
-- `GetDocumentAuditHistoryAsync`: Obtiene historial de un documento
-
-**AuditLog (Modelo):**
-```csharp
-public class AuditLog
-{
-    public Guid Id { get; set; }
-    public Guid DocumentId { get; set; }
-    public string OperationType { get; set; } // Upload, Approve, Reject, Download
-    public string UserId { get; set; }
-    public string Description { get; set; }
-    public bool Success { get; set; }
-    public string? ErrorMessage { get; set; }
-    public DateTime CreatedAtUtc { get; set; }
-    public string IpAddress { get; set; }
-    public string UserAgent { get; set; }
-}
-```
-
-### Manejo Global de Excepciones
-
-**GlobalExceptionHandlerMiddleware** captura y maneja:
-
-| Excepción | HTTP Status | Respuesta |
-|-----------|-------------|----------|
-| ValidationException | 400 | Errores estructurados por campo |
-| ArgumentException | 400 | "Argumento inválido" |
-| FileNotFoundException | 404 | "Recurso no encontrado" |
-| InvalidOperationException | 400 | "Operación inválida" |
-| UnauthorizedAccessException | 401 | "Acceso no autorizado" |
-| Otras excepciones | 500 | "Error interno del servidor" |
-
-**Respuesta de Error:**
-```json
-{
-  "message": "Descripción del error",
-  "details": "Detalles adicionales (si aplica)",
-  "timestamp": "2025-11-20T10:30:00Z",
-  "traceId": "0HN1GQVMFGE9H:00000001",
-  "errors": {
-    "FieldName": ["Error message 1", "Error message 2"]
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=ErpDocuments;User Id=sa;Password=YourPassword;TrustServerCertificate=true;"
+  },
+  "Storage": {
+    "Provider": "AzureBlob"
   }
 }
 ```
 
-### Filtro de Validación
+### Opción 1: Azure Blob Storage
 
-**ValidateModelFilterAttribute** - Valida automáticamente el ModelState antes de ejecutar acciones del controller.
+1. **Crear Storage Account en Azure**:
+   - Nombre: `mystorageaccount`
+   - Crear contenedor: `documents`
 
-### Integración en Program.cs
+2. **Configurar en appsettings.Development.json**:
 
-```csharp
-// Validadores
-builder.Services.AddScoped<IValidator<UploadDocumentRequest>, UploadDocumentRequestValidator>();
-builder.Services.AddScoped<IValidator<ApproveDocumentRequest>, ApproveDocumentRequestValidator>();
-builder.Services.AddScoped<IValidator<RejectDocumentRequest>, RejectDocumentRequestValidator>();
-
-// Auditoría
-builder.Services.AddScoped<IAuditService, AuditService>();
-
-// Middleware de excepciones global
-app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+```json
+{
+  "Storage": {
+    "Provider": "AzureBlob",
+    "Azure": {
+      "ConnectionString": "DefaultEndpointsProtocol=https;AccountName=mystorageaccount;AccountKey=ACCOUNT_KEY;EndpointSuffix=core.windows.net",
+      "ContainerName": "documents"
+    }
+  }
+}
 ```
 
-## 🧪 Meta 7: Tests Unitarios e Integration Tests
+3. **O usar variables de entorno**:
 
-### Framework de Testing
-- **xUnit** - Test runner
-- **Moq 4.20.72** - Mocking library
-- **FluentAssertions 8.8.0** - Fluent assertion library
-
-### Proyecto: Erp.Documents.Tests
-
-**Estructura:**
-```
-Erp.Documents.Tests/
-├── Unit/
-│   └── ValidatorSimpleTests.cs    # Tests para validadores (10 tests)
-└── Integration/
-    └── DocumentEntityTests.cs      # Tests para entidades (4 tests)
-```
-
-**Ejecución:**
 ```bash
-cd Erp.Documents.Tests
-dotnet test
-# Result: 13 passed, 0 failed
+export Storage__Provider=AzureBlob
+export Storage__Azure__ConnectionString="DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net"
+export Storage__Azure__ContainerName=documents
 ```
 
-## 🔧 Estado Actual - ✅ PROYECTO COMPLETADO
+### Opción 2: AWS S3
 
-✅ Estructura de proyectos creada  
-✅ Configuración de DI en Program.cs  
-✅ Entidades de dominio definidas  
-✅ DbContext configurado  
-✅ Opciones de configuración estructuradas  
-✅ appsettings.Development.json con credenciales reales  
-✅ **Migraciones EF Core creadas y automatizadas**  
-✅ **Repositorios implementados (Document, ValidationFlow)**  
-✅ **DbInitializer: Auto-migración y seed de datos**  
-✅ **Meta 3: Servicios de almacenamiento multi-cloud (Azure Blob, S3)**  
-✅ **Meta 4: Servicios de aplicación (Upload, Download, Approve, Reject)**  
-✅ **Meta 5: REST Controllers (Upload, Download, Validation)**  
-✅ **Meta 6: Validación (FluentValidation), Auditoría, Manejo de errores global**  
-✅ **Meta 7: Tests unitarios e integration tests (xUnit, Moq, FluentAssertions)**  
-✅ **Meta 8: Docker (Dockerfile, docker-compose.yml), Documentación completa**  
+1. **Crear bucket en AWS S3**:
+   - Nombre: `erp-documents`
+   - Región: `us-east-1`
+
+2. **Configurar en appsettings.Development.json**:
+
+```json
+{
+  "Storage": {
+    "Provider": "S3",
+    "S3": {
+      "BucketName": "erp-documents",
+      "Region": "us-east-1"
+    }
+  }
+}
+```
+
+3. **Configurar credenciales AWS** (una de estas opciones):
+
+**Opción A: Variables de entorno**
+```bash
+export AWS_ACCESS_KEY_ID=YOUR_ACCESS_KEY
+export AWS_SECRET_ACCESS_KEY=YOUR_SECRET_KEY
+export AWS_REGION=us-east-1
+```
+
+**Opción B: Archivo ~/.aws/credentials** (Linux/Mac)
+```
+[default]
+aws_access_key_id = YOUR_ACCESS_KEY
+aws_secret_access_key = YOUR_SECRET_KEY
+```
+
+**Opción C: Archivo %USERPROFILE%\.aws\credentials** (Windows)
+```
+[default]
+aws_access_key_id = YOUR_ACCESS_KEY
+aws_secret_access_key = YOUR_SECRET_KEY
+```
+
+## 🗄️ Setup Inicial de Base de Datos
+
+**IMPORTANTE:** Ejecuta esto ANTES de ejecutar la API.
+
+### Opción Recomendada: Script PowerShell Automatizado
+
+```powershell
+# 1. Navegar a la carpeta scripts
+cd "scripts"
+
+# 2. Ejecutar setup (crea BD, tablas y datos de prueba)
+.\setup-database.ps1
+
+# 3. Copiar connection string de CONNECTION_STRING.txt
+#    a appsettings.Development.json
+```
+
+**Qué hace:**
+- ✓ Crea BD `ErpDocuments` en SQL Server
+- ✓ Crea 5 tablas con índices
+- ✓ Inserta datos de prueba (2 empresas, 3 documentos, 3 pasos de validación)
+- ✓ Ejecuta EF Core migrations
+- ✓ Genera `CONNECTION_STRING.txt`
+
+**Detalles:** Ver [`scripts/README.md`](scripts/README.md)
+
+### Opción Manual: SQL Script
+
+```bash
+sqlcmd -S localhost -U sa -P "YourPassword123!" -i scripts/setup-database.sql
+```
 
 ---
 
-## 📦 Entregables - Meta 8
+## 🚀 Ejecución
 
-### Docker & Containerization
-- ✅ **Dockerfile** - Multi-stage build (SDK → Runtime)
-- ✅ **docker-compose.yml** - SQL Server + API services
-- ✅ **.dockerignore** - Exclude unnecessary files
-- ✅ **DOCKER.md** - Complete Docker documentation
+### Opción 1: Desarrollo Local
 
-### Documentation
-- ✅ **API.md** - Endpoint documentation, examples, models
-- ✅ **DEVELOPER.md** - Local development setup, debugging, workflow
-- ✅ **README.md** - Project overview and quick start
+**Requisitos previos:**
+- .NET 10.0 SDK
+- SQL Server 2022+ (local o Docker)
+- ✅ Base de datos creada (ver sección anterior)
 
-### Features Implemented
-- Multi-cloud storage (Azure Blob, AWS S3)
-- Hierarchical document validation (multi-step approval)
-- REST API with Swagger/OpenAPI
-- FluentValidation for all DTOs
-- Global exception handling
-- Audit logging
-- 13 unit + integration tests (xUnit, Moq, FluentAssertions)
-- Docker containerization
-- Comprehensive documentation
+**Pasos:**
 
+```bash
+# 1. Clonar repositorio
+git clone https://github.com/CodingToShare/Prueba-Tecnica---Fail-Fast.git
+cd "Prueba Tecnica - Fail Fast"
+
+# 2. Restaurar paquetes
+dotnet restore
+
+# 3. Configurar connection string
+# Copiar de CONNECTION_STRING.txt (después de ejecutar setup-database.ps1)
+# a appsettings.Development.json
+
+# 4. Ejecutar API
+cd Erp.Documents.Api
+dotnet run --launch-profile https
+```
+
+**API disponible en:** `https://localhost:5001`
+
+**Swagger UI:** `https://localhost:5001/swagger`
+
+### Opción 2: Docker Compose
+
+**Requisitos:**
+- Docker Desktop
+
+**Pasos:**
+
+```bash
+# Construir e iniciar servicios
+docker-compose up -d
+
+# Verificar servicios
+docker ps
+
+# Ver logs de API
+docker logs erp-documents-api
+
+# Ver logs de SQL Server
+docker logs erp-documents-db
+```
+
+**API disponible en:** `http://localhost:8080`
+
+**Swagger UI:** `http://localhost:8080/swagger`
+
+**Detener servicios:**
+```bash
+docker-compose down
+```
+
+## 🧪 Pruebas
+
+### Ejecutar Tests
+
+```bash
+cd Erp.Documents.Tests
+dotnet test
+```
+
+**Resultado esperado:** 13 tests pasando
+- 10 tests de validadores
+- 4 tests de entidades
+- 2 tests de servicios
+
+## 💻 Estructura del Proyecto
+
+```
+Erp.Documents.Api/
+  ├── Controllers/              # Endpoints REST
+  ├── Middleware/               # Manejo global de excepciones
+  └── Program.cs               # Configuración y DI
+
+Erp.Documents.Application/
+  ├── DTOs/                    # Request/Response models
+  ├── Interfaces/              # Contratos de servicios
+  └── Validators/              # FluentValidation rules
+
+Erp.Documents.Domain/
+  ├── Entities/                # Document, ValidationFlow, ValidationStep, etc.
+  ├── Enums/                   # ValidationStatus, etc.
+  └── Events/                  # Domain events
+
+Erp.Documents.Infrastructure/
+  ├── Data/                    # DbContext, Repositories, Migraciones
+  ├── Services/                # Upload, Download, Approve, Reject, Storage
+  └── Configuration/           # Options, DbContext config
+
+Erp.Documents.Tests/
+  ├── Unit/                    # Validator tests
+  └── Integration/             # Entity tests
+```
+
+## 📡 API Endpoints
+
+### Carga de Documento
+
+**POST** `/api/upload/initiate`
+
+Request:
+```json
+{
+  "companyId": "550e8400-e29b-41d4-a716-446655440000",
+  "entityType": "vehicle",
+  "entityId": "VEH-001",
+  "fileName": "soat.pdf",
+  "mimeType": "application/pdf",
+  "fileSizeBytes": 102400,
+  "requiresValidation": true
+}
+```
+
+Response (200):
+```json
+{
+  "documentId": "650e8400-e29b-41d4-a716-446655440000",
+  "uploadUrl": "https://storage.example.com/upload?token=xyz",
+  "expiresAtUtc": "2025-11-20T12:30:00Z"
+}
+```
+
+**POST** `/api/upload/complete`
+
+Request:
+```json
+{
+  "documentId": "650e8400-e29b-41d4-a716-446655440000",
+  "bucketKey": "companies/550e8400/vehicles/VEH-001/soat.pdf"
+}
+```
+
+### Descarga de Documento
+
+**GET** `/api/download/{documentId}`
+
+Response (200):
+```json
+{
+  "documentId": "650e8400-e29b-41d4-a716-446655440000",
+  "fileName": "soat.pdf",
+  "mimeType": "application/pdf",
+  "downloadUrl": "https://storage.example.com/download?token=abc",
+  "fileSizeBytes": 102400
+}
+```
+
+### Aprobación
+
+**POST** `/api/validation/approve`
+
+Request:
+```json
+{
+  "documentId": "650e8400-e29b-41d4-a716-446655440000",
+  "approverUserId": "user-456",
+  "reason": "Cumple requisitos"
+}
+```
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "Documento aprobado"
+}
+```
+
+### Rechazo
+
+**POST** `/api/validation/reject`
+
+Request:
+```json
+{
+  "documentId": "650e8400-e29b-41d4-a716-446655440000",
+  "rejecterUserId": "user-456",
+  "reason": "Documento ilegible"
+}
+```
+
+## 🛡️ Reglas de Negocio
+
+1. **Validación jerárquica**: Mayor `order` aprueba pasos previos
+2. **Aprobación completa**: Si el último aprobador aprueba → documento pasa a estado "A"
+3. **Rechazo terminal**: Cualquier rechazo pone documento en estado "R" (no reversible)
+4. **Atomicidad**: Documento en BD solo si existe en bucket
+5. **Auditoría**: Todas las acciones registran actor, razón y timestamp
+
+## 🔐 Consideraciones de Seguridad
+
+- Pre-signed URLs con expiración limitada
+- Validación de entrada: tamaños, MIME types
+- Registro de auditoría de todas las operaciones
+- Control de acceso por empresa
