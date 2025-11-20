@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # SQL Server Database
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: erp-documents-db
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "YourStrong@Password123"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "YourStrong@Password123", "-Q", "SELECT 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - erp-network
+
+  # Erp.Documents API
+  erp-documents-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: erp-documents-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Initial Catalog=ErpDocuments;User Id=sa;Password=YourStrong@Password123;TrustServerCertificate=true;"
+      Storage__Provider: "AzureBlob"
+      # Update these with your actual Azure Blob Storage credentials
+      Storage__Azure__ConnectionString: ${AZURE_STORAGE_CONNECTION_STRING:-UseDevelopmentStorage=true}
+      Storage__Azure__ContainerName: "documents"
+      # AWS S3 credentials (optional, if using S3)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+networks:
+  erp-network:
+    driver: bridge
+
+volumes:
+  sqlserver_data:
